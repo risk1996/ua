@@ -57,6 +57,9 @@ BENEDICT_POSITIVE_UPPER_BOUND= numpy.array([ 30, 255, 255])
 BENEDICT_NEGATIVE_LOWER_BOUND= numpy.array([ 85,  80,  40])
 BENEDICT_NEGATIVE_UPPER_BOUND= numpy.array([ 95, 255, 255])
 
+# Test bounds
+TEST_SUCCESS_LOWER_BOUND     = 20
+
 ######################################
 ## Functions                        ##
 ######################################
@@ -151,6 +154,10 @@ lcd_write(1, 0, u'~~ Booting Up ~~')
 ######################################
 # Main process
 while True:
+    # Declare system as ready
+    lcd_write(0, 0, u'UrineAnalyzerV.1')
+    lcd_write(1, 0, u'~~ Booting Up ~~')
+
     # Wait for user input
     if RPi.GPIO.input(BUTTON_CALIBRATION):
 
@@ -203,13 +210,44 @@ while True:
         # Obtain test result
         biuret_test_result   = accuracy(5*(diff_l_cnt_pos[1]-diff_l_cnt_neg[1])/(numpy.sum(diff_l_cnt_pos)))
         benedict_test_result = accuracy(5*(diff_r_cnt_pos[1]-diff_r_cnt_neg[1])/(numpy.sum(diff_r_cnt_pos)))
+        biuret_test_result_is_pos   = biuret_test_result   > 0
+        benedict_test_result_is_pos = benedict_test_result > 0
+        biuret_test_result_pct      = abs(biuret_test_result)
+        benedict_test_result_pct    = abs(benedict_test_result)
+        if biuret_test_result_pct < TEST_SUCCESS_LOWER_BOUND:
+            biuret_test_result_str    = "GGL"
+            biuret_test_result_sym    = "X"
+        else if biuret_test_result_is_pos:
+            biuret_test_result_str    = "POS"
+            biuret_test_result_sym    = "+"
+        else:
+            biuret_test_result_str    = "NEG"
+            biuret_test_result_sym    = "-"
+        if benedict_test_result_pct < TEST_SUCCESS_LOWER_BOUND:
+            benedict_test_result_str  = "GGL"
+            benedict_test_result_sym  = "X"
+        else if benedict_test_result_is_pos:
+            benedict_test_result_str  = "POS"
+            benedict_test_result_sym  = "+"
+        else:
+            benedict_test_result_str  = "NEG"
+            benedict_test_result_sym  = "-"
 
         # Output test result
         lcd_write(1, 0, u'Analisa Selesai!')
         play_audio("sls.mp3")
         lcd_write(1, 0, u'  Hasil Tes...  ')
         play_audio("hsl.mp3")
-        # lcd_write(1, 0, u'  Hasil Tes...  ')
+        lcd_write(0, 0, u'Biuret  : ' + biuret_test_result_sym   + '{:>3}%'.format(biuret_test_result_pct))
+        lcd_write(1, 0, u'Benedict: ' + benedict_test_result_sym + '{:>3}%'.format(benedict_test_result_pct))
+        play_audio("bi.mp3")
+        play_audio(biuret_test_result_str.lower() + ".mp3")
+        play_audio("ta.mp3")
+        play_audio("{}".format(biuret_test_result_pct) + ".mp3")
+        play_audio("be.mp3")
+        play_audio(benedict_test_result_str.lower() + ".mp3")
+        play_audio("ta.mp3")
+        play_audio("{}".format(benedict_test_result_pct) + ".mp3")
 
         # Remove residual files
         # subprocess.check_output(["bash", "-c", "rm -f " + BEFORE_IMAGE_FILENAME])

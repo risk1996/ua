@@ -28,26 +28,26 @@
 # except:
 #     GPIO.cleanup()
 
-# import RPLCD
-# import RPi.GPIO as GPIO
-# import time
-# try:
-#     lcd = RPLCD.CharLCD(numbering_mode=GPIO.BOARD, cols=16, rows=2, pin_rs=37, pin_e=35, pins_data=[33, 31, 29, 23])
-#     lcd.write_string(u'Hello World')
-#     time.sleep(1.5)
-#     def lcd_write(row, col, str):
-#         lcd.cursor_pos = (row, col)
-#         lcd.write_string(str)
-#         return
+import RPLCD
+import RPi.GPIO as GPIO
+import time
+try:
+    lcd = RPLCD.CharLCD(numbering_mode=GPIO.BOARD, cols=16, rows=2, pin_rs=37, pin_e=35, pins_data=[33, 31, 29, 23])
+    lcd.write_string(u'Hello World')
+    time.sleep(1.5)
+    def lcd_write(row, col, str):
+        lcd.cursor_pos = (row, col)
+        lcd.write_string(str)
+        return
     
-#     lcd_write(0, 0, u'UrineAnalyzerV.1')
-#     lcd_write(1, 0, u'~~ Booting Up ~~')
-#     time.sleep(3)
-#     while True:
-#         lcd_write(1,0,"Clk: %s" %time.strftime("%H:%M:%S:%f"))
-#     GPIO.cleanup()
-# except:
-#     GPIO.cleanup()
+    lcd_write(0, 0, u'UrineAnalyzerV.1')
+    lcd_write(1, 0, u'~~ Booting Up ~~')
+    time.sleep(3)
+    while True:
+        lcd_write(1,0,"Clk: %s" %time.strftime("%H:%M:%S:%f"))
+    GPIO.cleanup()
+except:
+    GPIO.cleanup()
 
 # import picamera
 # import time

@@ -107,6 +107,7 @@ gtts-cli "tingkat akurasi" -l "id" -o ta.mp3
 gtts-cli "analisa selesai" -l "id" -o sls.mp3
 gtts-cli "positif" -l "id" -o pos.mp3
 gtts-cli "negatif" -l "id" -o neg.mp3
+gtts-cli "gagal" -l "id" -o ggl.mp3
 gtts-cli "error" -l "id" -o err.mp3
 gtts-cli "tidak ditemukan" -l "id" -o td.mp3
 gtts-cli "kamera" -l "id" -o cam.mp3
