@@ -78,17 +78,19 @@ def camera_init():
 # Camera load adjustments
 def camera_reload():
     
-    i=-100
-    while True:
-        camera.sharpness = CAMERA_SHARPNESS + i#change
-        print i
-        camera.start_preview()
-        time.sleep(0.5)
-        camera.stop_preview()
-        i+=10
+    # i=-100
+    # while True:
+    #     camera.sharpness = CAMERA_SHARPNESS + i#change
+    #     print i
+    #     camera.start_preview()
+    #     time.sleep(0.5)
+    #     camera.stop_preview()
+    #     i+=10
    
     #time.sleep(1)
-    time.sleep(5*60)
+    camera.annotate_text = "I" 
+    camera.start_preview()
+    time.sleep(5*60*1000)
     camera.resolution = (IMAGE_WIDTH, IMAGE_HEIGHT)
     #camera.capture("tes backlit.jpg", use_video_port=CAMERA_USE_VIDEO_PORT)
 

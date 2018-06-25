@@ -104,10 +104,15 @@ gtts-cli "hasil tes" -l "id" -o hsl.mp3
 gtts-cli "biuret" -l "id" -o bi.mp3
 gtts-cli "benedict" -l "id" -o be.mp3
 gtts-cli "tingkat akurasi" -l "id" -o ta.mp3
-gtts-cli "analisa selesai" -l "id" -o sls.mp3
+gtts-cli "analisis selesai" -l "id" -o sls.mp3
 gtts-cli "positif" -l "id" -o pos.mp3
 gtts-cli "negatif" -l "id" -o neg.mp3
 gtts-cli "gagal" -l "id" -o ggl.mp3
 gtts-cli "error" -l "id" -o err.mp3
+gtts-cli "siap digunakan" -l "id" -o sd.mp3
+gtts-cli "mematikan perangkat" -l "id" -o mp.mp3
+gtts-cli "memulai tes" -l "id" -o mt.mp3
+gtts-cli "menunggu reaksi" -l "id" -o mr.mp3
+gtts-cli "memulai analisis" -l "id" -o ma.mp3
 gtts-cli "tidak ditemukan" -l "id" -o td.mp3
 gtts-cli "kamera" -l "id" -o cam.mp3
