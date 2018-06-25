@@ -1,10 +1,3 @@
-# import cv2
-# import RPi
-# diff = cv2.imread("dif.jpg")
-# crop = diff[0:200, 0:100]
-# cv2.imshow("Cropped", crop)
-# cv2.waitKey(0)
-
 # import RPi.GPIO as GPIO
 # import time
 
@@ -31,6 +24,9 @@
 import RPLCD
 import RPi.GPIO as GPIO
 import time
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(11, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(13, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 try:
     lcd = RPLCD.CharLCD(numbering_mode=GPIO.BOARD, cols=16, rows=2, pin_rs=37, pin_e=35, pins_data=[33, 31, 29, 23])
     lcd.write_string(u'Hello World')
@@ -41,10 +37,18 @@ try:
         return
     
     lcd_write(0, 0, u'UrineAnalyzerV.1')
-    lcd_write(1, 0, u'~~ Booting Up ~~')
+    lcd_write(1, 0, u'-- Booting Up --')
+    x=42
     time.sleep(3)
     while True:
-        lcd_write(1,0,"Clk: %s" %time.strftime("%H:%M:%S:%f"))
+        if GPIO.input(11) == False:
+            x = x+1
+            time.sleep(0.2)
+        elif GPIO.input(13) == False:
+            x = x-1
+            time.sleep(0.2)
+        # lcd_write(1,0,"Clk: %s" %time.strftime("%H:%M:%S:%f"))
+        lcd_write(1,0,'{:>3}%            '.format(x))
     GPIO.cleanup()
 except:
     GPIO.cleanup()

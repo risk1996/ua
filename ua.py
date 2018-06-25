@@ -4,7 +4,7 @@ import picamera     # https://picamera.readthedocs.io/en/release-1.13/recipes1.h
 import time
 import cv2
 import subprocess
-import numpy as np
+import numpy
 import pygame
 
 ######################################
@@ -13,9 +13,9 @@ import pygame
 # GPIO Pins Declarations
 BUTTON_PIN_CALIBRATION       = 11
 BUTTON_PIN_START             = 13
-
-# LED Pins Declarations
 LED_PIN_READY                = 24
+PUMP_BIURET_PIN_DRIVE        = 16
+PUMP_BENEDICT_PIN_DRIVE      = 18
 
 # LCD Pins & Constants Declarations
 LCD_NUMBERING_MODE           = RPi.GPIO.BOARD
@@ -46,6 +46,10 @@ CAMERA_AWB_GAINS             = (0,0)    # Range: (0.0 .. 8.0, 0.0 .. 8.0)
 CAMERA_ANNOTATE_TEXT         = '|'
 CAMERA_DELAY                 = 1
 CAMERA_USE_VIDEO_PORT        = True
+
+# HSV Color Bounds of Urine
+URINE_LOWER_BOUND            = numpy.array([20,  40,  40])
+URINE_UPPER_BOUND            = numpy.array([30, 255, 255])
 
 # HSV Color Bounds of Reaction Results
 BIURET_POSITIVE_LOWER_BOUND  = numpy.array([140,  80,  40])
@@ -141,27 +145,35 @@ def play_audio(x):
 ######################################
 # GPIO Setup
 RPi.GPIO.setmode(RPi.GPIO.BCM)
-RPi.GPIO.setup(BUTTON_PIN_CALIBRATION, RPi.GPIO.IN )
-RPi.GPIO.setup(BUTTON_PIN_START      , RPi.GPIO.IN )
-RPi.GPIO.setup(LED_PIN_READY         , RPi.GPIO.OUT)
+RPi.GPIO.setup(BUTTON_PIN_CALIBRATION , RPi.GPIO.IN , pull_up_down=GPIO.PUD_UP)
+RPi.GPIO.setup(BUTTON_PIN_START       , RPi.GPIO.IN , pull_up_down=GPIO.PUD_UP)
+RPi.GPIO.setup(LED_PIN_READY          , RPi.GPIO.OUT)
+RPi.GPIO.setup(PUMP_BIURET_PIN_DRIVE  , RPi.GPIO.OUT)
+RPi.GPIO.setup(PUMP_BENEDICT_PIN_DRIVE, RPi.GPIO.OUT)
 # LCD Setup
 lcd_init()
 lcd_write(0, 0, u'UrineAnalyzerV.1')
-lcd_write(1, 0, u'~~ Booting Up ~~')
+lcd_write(1, 0, u'-- Booting Up --')
 
 ######################################
 ## Loop                             ##
 ######################################
 # Main process
 while True:
-    # Declare system as ready
+    # Output system status as ready
     lcd_write(0, 0, u'UrineAnalyzerV.1')
-    lcd_write(1, 0, u'~~ Booting Up ~~')
+    lcd_write(1, 0, u'  -- Ready! --  ')
 
     # Wait for user input
     if RPi.GPIO.input(BUTTON_CALIBRATION):
+        # Output system status as busy
+        lcd_write(1, 0, u' Calibrating... ')
 
-    else if RPi.GPIO.input(BUTTON_START):
+    elif RPi.GPIO.input(BUTTON_START):
+
+        # Output system status as busy
+        lcd_write(1, 0, u'   Testing...   ')
+
         # Take before-image
         take_picture(BEFORE_IMAGE_FILENAME)
 
@@ -190,10 +202,6 @@ while True:
         diff_r_hsv = cv2.cvtColor(diff_r, cv2.COLOR_BGR2HSV)
 
         # Process left and right image seperately
-        # diff_l_avg = numpy.round(numpy.average(numpy.average(diff_l, axis=0), axis=0))
-        # diff_r_avg = numpy.round(numpy.average(numpy.average(diff_r, axis=0), axis=0))
-        # print(diff_l_avg)
-        # print(diff_r_avg)
         diff_l_pos = cv2.inRange(diff_l_hsv,   BIURET_POSITIVE_LOWER_BOUND,   BIURET_POSITIVE_UPPER_BOUND)
         diff_l_neg = cv2.inRange(diff_l_hsv,   BIURET_NEGATIVE_LOWER_BOUND,   BIURET_NEGATIVE_UPPER_BOUND)
         diff_r_pos = cv2.inRange(diff_r_hsv, BENEDICT_POSITIVE_LOWER_BOUND, BENEDICT_POSITIVE_UPPER_BOUND)
@@ -242,12 +250,14 @@ while True:
         lcd_write(1, 0, u'Benedict: ' + benedict_test_result_sym + '{:>3}%'.format(benedict_test_result_pct))
         play_audio("bi.mp3")
         play_audio(biuret_test_result_str.lower() + ".mp3")
-        play_audio("ta.mp3")
-        play_audio("{}".format(biuret_test_result_pct) + ".mp3")
+        if biuret_test_result_str != "GGL":
+            play_audio("ta.mp3")
+            play_audio("{}".format(biuret_test_result_pct) + ".mp3")
         play_audio("be.mp3")
         play_audio(benedict_test_result_str.lower() + ".mp3")
-        play_audio("ta.mp3")
-        play_audio("{}".format(benedict_test_result_pct) + ".mp3")
+        if benedict_test_result_str != "GGL":
+            play_audio("ta.mp3")
+            play_audio("{}".format(benedict_test_result_pct) + ".mp3")
 
         # Remove residual files
         # subprocess.check_output(["bash", "-c", "rm -f " + BEFORE_IMAGE_FILENAME])
