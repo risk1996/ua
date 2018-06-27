@@ -1,9 +1,11 @@
 import RPi
-import RPLCD
+import RPLCD        # http://www.circuitbasics.com/raspberry-pi-lcd-set-up-and-programming-in-python/
 import picamera     # https://picamera.readthedocs.io/en/release-1.13/recipes1.html
 import time
 import cv2
 import subprocess
+import numpy as np
+import pygame
 
 ######################################
 ## Variable & Constants             ##
@@ -44,6 +46,16 @@ CAMERA_AWB_GAINS             = (0,0)    # Range: (0.0 .. 8.0, 0.0 .. 8.0)
 CAMERA_ANNOTATE_TEXT         = '|'
 CAMERA_DELAY                 = 1
 CAMERA_USE_VIDEO_PORT        = True
+
+# HSV Color Bounds of Reaction Results
+BIURET_POSITIVE_LOWER_BOUND  = numpy.array([140,  80,  40])
+BIURET_POSITIVE_UPPER_BOUND  = numpy.array([155, 255, 255])
+BIURET_NEGATIVE_LOWER_BOUND  = numpy.array([105,  20,  40])
+BIURET_NEGATIVE_UPPER_BOUND  = numpy.array([120, 255, 255])
+BENEDICT_POSITIVE_LOWER_BOUND= numpy.array([  5,  80,  40])
+BENEDICT_POSITIVE_UPPER_BOUND= numpy.array([ 30, 255, 255])
+BENEDICT_NEGATIVE_LOWER_BOUND= numpy.array([ 85,  80,  40])
+BENEDICT_NEGATIVE_UPPER_BOUND= numpy.array([ 95, 255, 255])
 
 ######################################
 ## Functions                        ##
@@ -104,6 +116,23 @@ def take_picture(filename):
     camera.close()
     return
 
+# Sigmoid function
+def sigmoid(x):
+    return 1/(1+numpy.exp(-x))
+
+# Accuracy function
+def accuracy(x):
+    return int(round(2*(sigmoid(x)-.5)*100))
+
+# Play audio function
+def play_audio(x):
+    pygame.mixer.init()
+    pygame.mixer.music.load(x)
+    pygame.mixer.music.set_volume(1.0)
+    pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        pass
+
 ######################################
 ## Boot Up                          ##
 ######################################
@@ -149,11 +178,38 @@ while True:
         diff_l = diff[0:IMAGE_HEIGHT, 0              :IMAGE_WIDTH/2]
         diff_r = diff[0:IMAGE_HEIGHT, IMAGE_WIDTH/2+1:IMAGE_WIDTH  ]
 
+        # Convert to HSV
+        diff_l_hsv = cv2.cvtColor(diff_l, cv2.COLOR_BGR2HSV)
+        diff_r_hsv = cv2.cvtColor(diff_r, cv2.COLOR_BGR2HSV)
+
         # Process left and right image seperately
-        diff_l_avg = numpy.round(numpy.average(numpy.average(diff_l, axis=0), axis=0))
-        diff_r_avg = numpy.round(numpy.average(numpy.average(diff_r, axis=0), axis=0))
-        print(diff_l_avg)
-        print(diff_r_avg)
+        # diff_l_avg = numpy.round(numpy.average(numpy.average(diff_l, axis=0), axis=0))
+        # diff_r_avg = numpy.round(numpy.average(numpy.average(diff_r, axis=0), axis=0))
+        # print(diff_l_avg)
+        # print(diff_r_avg)
+        diff_l_pos = cv2.inRange(diff_l_hsv,   BIURET_POSITIVE_LOWER_BOUND,   BIURET_POSITIVE_UPPER_BOUND)
+        diff_l_neg = cv2.inRange(diff_l_hsv,   BIURET_NEGATIVE_LOWER_BOUND,   BIURET_NEGATIVE_UPPER_BOUND)
+        diff_r_pos = cv2.inRange(diff_r_hsv, BENEDICT_POSITIVE_LOWER_BOUND, BENEDICT_POSITIVE_UPPER_BOUND)
+        diff_r_neg = cv2.inRange(diff_r_hsv, BENEDICT_NEGATIVE_LOWER_BOUND, BENEDICT_NEGATIVE_UPPER_BOUND)
+        diff_l_pos[0,0] = 255
+        diff_l_neg[0,0] = 255
+        diff_r_pos[0,0] = 255
+        diff_r_neg[0,0] = 255
+        temp, diff_l_cnt_pos = numpy.unique(diff_l_pos, return_counts=True)
+        temp, diff_l_cnt_neg = numpy.unique(diff_l_neg, return_counts=True)
+        temp, diff_r_cnt_pos = numpy.unique(diff_r_pos, return_counts=True)
+        temp, diff_r_cnt_neg = numpy.unique(diff_r_neg, return_counts=True)
+
+        # Obtain test result
+        biuret_test_result   = accuracy(5*(diff_l_cnt_pos[1]-diff_l_cnt_neg[1])/(numpy.sum(diff_l_cnt_pos)))
+        benedict_test_result = accuracy(5*(diff_r_cnt_pos[1]-diff_r_cnt_neg[1])/(numpy.sum(diff_r_cnt_pos)))
+
+        # Output test result
+        lcd_write(1, 0, u'Analisa Selesai!')
+        play_audio("sls.mp3")
+        lcd_write(1, 0, u'  Hasil Tes...  ')
+        play_audio("hsl.mp3")
+        # lcd_write(1, 0, u'  Hasil Tes...  ')
 
         # Remove residual files
         # subprocess.check_output(["bash", "-c", "rm -f " + BEFORE_IMAGE_FILENAME])
