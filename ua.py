@@ -11,7 +11,7 @@ import pygame
 ## Variable & Constants             ##
 ######################################
 # GPIO Pins Declarations
-BUTTON_PIN_CALIBRATION       = 11
+BUTTON_PIN_SHUTDOWN          = 11
 BUTTON_PIN_START             = 13
 LED_PIN_READY                = 24
 PUMP_BIURET_PIN_DRIVE        = 16
@@ -26,9 +26,7 @@ LCD_PIN_ENABLED              = 35
 LCD_PINS_DATA                = [33, 31, 29, 23]
 
 # Image Constants Declarations
-BEFORE_IMAGE_FILENAME        = "bef.jpg"
-AFTER_IMAGE_FILENAME         = "aft.jpg"
-DIFFERENCE_IMAGE_FILENAME    = "dif.jpg"
+IMAGE_FILENAME               = "img.jpg"
 IMAGE_WIDTH                  = 800
 IMAGE_HEIGHT                 = 600
 
@@ -123,13 +121,12 @@ def take_picture(filename):
     camera.close()
     return
 
-# Sigmoid function
-def sigmoid(x):
-    return 1/(1+numpy.exp(-x))
-
 # Accuracy function
 def accuracy(x):
-    return int(round(2*(sigmoid(x)-.5)*100))
+    # Sigmoid function
+    def sigmoid(x):
+        return 1/(1+numpy.exp(-x))
+    return int(round(2*(sigmoid(5*x)-.5)*100))
 
 # Play audio function
 def play_audio(x):
@@ -140,13 +137,28 @@ def play_audio(x):
     while pygame.mixer.music.get_busy():
         pass
 
+# Run reagent pump for t seconds
+def drop_reagent(t):
+    RPi.GPIO.output(PUMP_BIURET_PIN_DRIVE  , RPi.GPIO.HIGH)
+    RPi.GPIO.output(PUMP_BENEDICT_PIN_DRIVE, RPi.GPIO.HIGH)
+    time.sleep(t)
+    RPi.GPIO.output(PUMP_BIURET_PIN_DRIVE  , RPi.GPIO.LOW)
+    RPi.GPIO.output(PUMP_BENEDICT_PIN_DRIVE, RPi.GPIO.LOW)
+
+# Image masking withon bounds
+def mask_within_bounds(img, low, up):
+    mask = cv2.inRange(img, low, up)
+    mask[0,0] = 255
+    temp, count = numpy.unique(img_l_pos, return_counts=True)
+    return count
+
 ######################################
 ## Boot Up                          ##
 ######################################
 # GPIO Setup
 RPi.GPIO.setmode(RPi.GPIO.BCM)
-RPi.GPIO.setup(BUTTON_PIN_CALIBRATION , RPi.GPIO.IN , pull_up_down=GPIO.PUD_UP)
-RPi.GPIO.setup(BUTTON_PIN_START       , RPi.GPIO.IN , pull_up_down=GPIO.PUD_UP)
+RPi.GPIO.setup(BUTTON_PIN_SHUTDOWN    , RPi.GPIO.IN , pull_up_down=RPi.GPIO.PUD_UP)
+RPi.GPIO.setup(BUTTON_PIN_START       , RPi.GPIO.IN , pull_up_down=RPi.GPIO.PUD_UP)
 RPi.GPIO.setup(LED_PIN_READY          , RPi.GPIO.OUT)
 RPi.GPIO.setup(PUMP_BIURET_PIN_DRIVE  , RPi.GPIO.OUT)
 RPi.GPIO.setup(PUMP_BENEDICT_PIN_DRIVE, RPi.GPIO.OUT)
@@ -165,59 +177,45 @@ while True:
     lcd_write(1, 0, u'  -- Ready! --  ')
 
     # Wait for user input
-    if RPi.GPIO.input(BUTTON_CALIBRATION):
+    if RPi.GPIO.input(BUTTON_PIN_SHUTDOWN):
         # Output system status as busy
-        lcd_write(1, 0, u' Calibrating... ')
+        lcd_write(1, 0, u'Shutting down...')
 
-    elif RPi.GPIO.input(BUTTON_START):
+        # Shutdown Raspberry Pi
+        subprocess.check_output(["bash", "-c", "shutdown -t 5"])
+
+    elif RPi.GPIO.input(BUTTON_PIN_START):
 
         # Output system status as busy
         lcd_write(1, 0, u'   Testing...   ')
 
-        # Take before-image
-        take_picture(BEFORE_IMAGE_FILENAME)
-
         # Drop reagents
-        # something()
+        drop_reagent(3)
 
         # Wait for reactions
         time.sleep(5) # Supposed to be 5 minutes
 
-        # Take after-image
-        take_picture(AFTER_IMAGE_FILENAME)
-
-        # Calculate differences in before-image and after-image
-        bef = cv2.imread(BEFORE_IMAGE_FILENAME)
-        aft = cv2.imread(AFTER_IMAGE_FILENAME)
-        diff = cv2.absdiff(aft, bef)
-        diff = cv2.bitwise_not(diff)
-        cv2.imwrite(DIFFERENCE_IMAGE_FILENAME, diff)
+        # Take and load image
+        take_picture(IMAGE_FILENAME)
+        img = cv2.imread(IMAGE_FILENAME)
 
         # Split left and right image
-        diff_l = diff[0:IMAGE_HEIGHT, 0              :IMAGE_WIDTH/2]
-        diff_r = diff[0:IMAGE_HEIGHT, IMAGE_WIDTH/2+1:IMAGE_WIDTH  ]
+        img_l = img[0:IMAGE_HEIGHT, 0              :IMAGE_WIDTH/2]
+        img_r = img[0:IMAGE_HEIGHT, IMAGE_WIDTH/2+1:IMAGE_WIDTH  ]
 
         # Convert to HSV
-        diff_l_hsv = cv2.cvtColor(diff_l, cv2.COLOR_BGR2HSV)
-        diff_r_hsv = cv2.cvtColor(diff_r, cv2.COLOR_BGR2HSV)
+        img_l_hsv = cv2.cvtColor(img_l, cv2.COLOR_BGR2HSV)
+        img_r_hsv = cv2.cvtColor(img_r, cv2.COLOR_BGR2HSV)
 
-        # Process left and right image seperately
-        diff_l_pos = cv2.inRange(diff_l_hsv,   BIURET_POSITIVE_LOWER_BOUND,   BIURET_POSITIVE_UPPER_BOUND)
-        diff_l_neg = cv2.inRange(diff_l_hsv,   BIURET_NEGATIVE_LOWER_BOUND,   BIURET_NEGATIVE_UPPER_BOUND)
-        diff_r_pos = cv2.inRange(diff_r_hsv, BENEDICT_POSITIVE_LOWER_BOUND, BENEDICT_POSITIVE_UPPER_BOUND)
-        diff_r_neg = cv2.inRange(diff_r_hsv, BENEDICT_NEGATIVE_LOWER_BOUND, BENEDICT_NEGATIVE_UPPER_BOUND)
-        diff_l_pos[0,0] = 255
-        diff_l_neg[0,0] = 255
-        diff_r_pos[0,0] = 255
-        diff_r_neg[0,0] = 255
-        temp, diff_l_cnt_pos = numpy.unique(diff_l_pos, return_counts=True)
-        temp, diff_l_cnt_neg = numpy.unique(diff_l_neg, return_counts=True)
-        temp, diff_r_cnt_pos = numpy.unique(diff_r_pos, return_counts=True)
-        temp, diff_r_cnt_neg = numpy.unique(diff_r_neg, return_counts=True)
+        # Process left and right image
+        img_l_cnt_pos = mask_within_bounds(img_l_hsv,   BIURET_POSITIVE_LOWER_BOUND,   BIURET_POSITIVE_UPPER_BOUND)
+        img_l_cnt_neg = mask_within_bounds(img_l_hsv,   BIURET_NEGATIVE_LOWER_BOUND,   BIURET_NEGATIVE_UPPER_BOUND)
+        img_r_cnt_pos = mask_within_bounds(img_r_hsv, BENEDICT_POSITIVE_LOWER_BOUND, BENEDICT_POSITIVE_UPPER_BOUND)
+        img_r_cnt_neg = mask_within_bounds(img_r_hsv, BENEDICT_NEGATIVE_LOWER_BOUND, BENEDICT_NEGATIVE_UPPER_BOUND)
 
         # Obtain test result
-        biuret_test_result   = accuracy(5*(diff_l_cnt_pos[1]-diff_l_cnt_neg[1])/(numpy.sum(diff_l_cnt_pos)))
-        benedict_test_result = accuracy(5*(diff_r_cnt_pos[1]-diff_r_cnt_neg[1])/(numpy.sum(diff_r_cnt_pos)))
+        biuret_test_result   = accuracy((img_l_cnt_pos[1]-img_l_cnt_neg[1])/numpy.sum(img_l_cnt_pos))
+        benedict_test_result = accuracy((img_r_cnt_pos[1]-img_r_cnt_neg[1])/numpy.sum(img_r_cnt_pos))
         biuret_test_result_is_pos   = biuret_test_result   > 0
         benedict_test_result_is_pos = benedict_test_result > 0
         biuret_test_result_pct      = abs(biuret_test_result)
@@ -260,6 +258,4 @@ while True:
             play_audio("{}".format(benedict_test_result_pct) + ".mp3")
 
         # Remove residual files
-        # subprocess.check_output(["bash", "-c", "rm -f " + BEFORE_IMAGE_FILENAME])
-        # subprocess.check_output(["bash", "-c", "rm -f " + AFTER_IMAGE_FILENAME])
-        # subprocess.check_output(["bash", "-c", "rm -f " + DIFFERENCE_IMAGE_FILENAME])
+        # subprocess.check_output(["bash", "-c", "rm -f " + IMAGE_FILENAME])
